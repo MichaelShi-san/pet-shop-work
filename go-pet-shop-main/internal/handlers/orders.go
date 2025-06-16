@@ -16,11 +16,18 @@ type Orders interface {
 	AddOrderItem(item models.OrderItem) error
 	GetOrderItemsByOrderID(orderID int) ([]models.OrderItem, error)
 	GetOrdersByUserEmail(email string) ([]models.Order, error)
+	PlaceOrder(userEmail string, items []models.OrderItem) (int, error)
 }
 
 type OrdersHandler struct {
 	log *slog.Logger
 	Storage Orders
+	
+}
+
+type orderRequest struct {
+    UserEmail string             `json:"user_email"`
+    Items     []models.OrderItem `json:"items"`
 }
 
 func NewOrdersHandler(log *slog.Logger, storage Orders) *OrdersHandler {
@@ -75,3 +82,26 @@ func (h *OrdersHandler) AddOrderItem(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "Order item added successfully"})
 }
+
+func (h *OrdersHandler) PlaceOrder(w http.ResponseWriter, r *http.Request) {
+    var req orderRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, "invalid request", http.StatusBadRequest)
+        return
+    }
+
+    h.log.Info("PlaceOrder request", slog.Any("user_email", req.UserEmail), slog.Any("items", req.Items))
+
+    orderID, err := h.Storage.PlaceOrder(req.UserEmail, req.Items)
+    if err != nil {
+        h.log.Error("failed to place order", slog.Any("error", err))
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    w.WriteHeader(http.StatusCreated)
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(map[string]int{"order_id": orderID})
+}
+
+

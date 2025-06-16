@@ -13,6 +13,67 @@ type Storage struct {
 	db *pgxpool.Pool
 }
 
+// PlaceOrder implements handlers.Orders.
+func (s *Storage) PlaceOrder(userEmail string, items []models.OrderItem) (int, error) {
+	ctx := context.Background()
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Найти user_id по email
+	var userID int
+	err = tx.QueryRow(ctx, `SELECT id FROM users WHERE email = $1`, userEmail).Scan(&userID)
+	if err != nil {
+		return 0, fmt.Errorf("user not found: %w", err)
+	}
+
+	// Создать заказ
+	var orderID int
+	err = tx.QueryRow(ctx, `INSERT INTO orders (user_id, total_price) VALUES ($1, 0) RETURNING id`, userID).Scan(&orderID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create order: %w", err)
+	}
+
+	// 3Добавить товары
+	var total float64
+	for _, item := range items {
+		var price float64
+		err = tx.QueryRow(ctx, `SELECT price FROM products WHERE id = $1`, item.ProductID).Scan(&price)
+		if err != nil {
+			return 0, fmt.Errorf("product not found: %w", err)
+		}
+
+		_, err = tx.Exec(ctx, `INSERT INTO order_items (order_id, product_id, quantity) VALUES ($1, $2, $3)`,
+			orderID, item.ProductID, item.Quantity)
+		if err != nil {
+			return 0, fmt.Errorf("failed to insert order item: %w", err)
+		}
+
+		total += price * float64(item.Quantity)
+	}
+
+	// Обновить общую сумму
+	_, err = tx.Exec(ctx, `UPDATE orders SET total_price = $1 WHERE id = $2`, total, orderID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to update total price: %w", err)
+	}
+
+	// Записать транзакцию
+	_, err = tx.Exec(ctx, `INSERT INTO transactions (order_id, amount, status) VALUES ($1, $2, $3)`,
+		orderID, total, "pending")
+	if err != nil {
+		return 0, fmt.Errorf("failed to create transaction: %w", err)
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("failed to commit: %w", err)
+	}
+
+	return orderID, nil
+}
+
 func New(databaseUrl string) (*Storage, error) {
 	const fn = "storage.postgres.New"
 
@@ -129,5 +190,5 @@ func (s *Storage) AddOrderItem(item models.OrderItem) error {
 	if err != nil {
 		return fmt.Errorf("add order item: %w", err)
 	}
-return nil
+	return nil
 }

@@ -22,8 +22,9 @@ type Order struct {
 }
 
 type OrderItem struct {
-	ID        int
-	OrderID   int
-	ProductID int
-	Quantity  int
+    ID        int `json:"id"`
+    OrderID   int `json:"order_id"`
+    ProductID int `json:"product_id"`
+    Quantity  int `json:"quantity"`
 }
+
