@@ -61,6 +61,11 @@ func main() {
 
 	log.Info("Starting server on", slog.String("address", cfg.HTTPServer.Address))
 
+	ordersHandler := handlers.NewOrdersHandler(log, storage)
+	
+	router.Post("/orders", ordersHandler.CreateOrder)
+	router.Post("/orders/{id}/items", ordersHandler.AddOrderItem)
+
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Error("Server error: ", slog.String("err", err.Error()))
 	}
