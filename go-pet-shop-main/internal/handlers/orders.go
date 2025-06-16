@@ -17,6 +17,7 @@ type Orders interface {
 	GetOrderItemsByOrderID(orderID int) ([]models.OrderItem, error)
 	GetOrdersByUserEmail(email string) ([]models.Order, error)
 	PlaceOrder(userEmail string, items []models.OrderItem) (int, error)
+	GetUserOrderHistory(email string) ([]models.OrderDetail, error)
 }
 
 type OrdersHandler struct {
@@ -103,5 +104,24 @@ func (h *OrdersHandler) PlaceOrder(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Content-Type", "application/json")
     json.NewEncoder(w).Encode(map[string]int{"order_id": orderID})
 }
+
+func (h *OrdersHandler) GetUserOrderHistory(w http.ResponseWriter, r *http.Request) {
+    email := chi.URLParam(r, "email")
+    if email == "" {
+        http.Error(w, "email is required", http.StatusBadRequest)
+        return
+    }
+
+    history, err := h.Storage.GetUserOrderHistory(email)
+    if err != nil {
+        h.log.Error("failed to get user order history", slog.Any("error", err))
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(history)
+}
+
 
 

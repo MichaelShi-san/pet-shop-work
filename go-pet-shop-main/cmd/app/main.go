@@ -66,6 +66,8 @@ func main() {
 	router.Post("/orders", ordersHandler.CreateOrder)
 	router.Post("/orders/{id}/items", ordersHandler.AddOrderItem)
 	router.Post("/orders/place", ordersHandler.PlaceOrder)
+	router.Get("/users/{email}/history", ordersHandler.GetUserOrderHistory)
+
 
 
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {

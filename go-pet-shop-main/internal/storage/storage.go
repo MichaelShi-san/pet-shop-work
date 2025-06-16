@@ -100,6 +100,48 @@ type Storage interface {
     return orderID, nil
 }
 
+func (s *PostgresStorage) GetUserOrderHistory(email string) ([]models.OrderDetail, error) {
+    query := `
+        SELECT 
+            o.id AS order_id,
+            p.name AS product_name,
+            oi.quantity,
+            p.price,
+            o.total_price,
+            t.status,
+            o.created_at
+        FROM users u
+        JOIN orders o ON u.id = o.user_id
+        JOIN order_items oi ON o.id = oi.order_id
+        JOIN products p ON oi.product_id = p.id
+        JOIN transactions t ON o.id = t.order_id
+        WHERE u.email = $1
+        ORDER BY o.created_at DESC;
+    `
+
+    rows, err := s.db.Query(query, email)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var history []models.OrderDetail
+    for rows.Next() {
+        var od models.OrderDetail
+        if err := rows.Scan(&od.OrderID, &od.ProductName, &od.Quantity, &od.Price, &od.TotalPrice, &od.Status, &od.CreatedAt); err != nil {
+            return nil, err
+        }
+        history = append(history, od)
+    }
+
+    if err := rows.Err(); err != nil {
+        return nil, err
+    }
+
+    return history, nil
+}
+
+
 
 var (
 	ErrURLNotFound = errors.New("url not found")

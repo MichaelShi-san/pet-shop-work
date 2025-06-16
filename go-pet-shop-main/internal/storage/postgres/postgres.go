@@ -192,3 +192,71 @@ func (s *Storage) AddOrderItem(item models.OrderItem) error {
 	}
 	return nil
 }
+
+func (s *Storage) GetUserOrderHistory(email string) ([]models.OrderDetail, error) {
+    query := `
+        SELECT 
+            o.id AS order_id,
+            o.created_at,
+            oi.product_id,
+            p.name,
+            oi.quantity,
+            t.status
+        FROM orders o
+        JOIN users u ON o.user_id = u.id
+        JOIN order_items oi ON oi.order_id = o.id
+        JOIN products p ON p.id = oi.product_id
+        LEFT JOIN transactions t ON t.order_id = o.id
+        WHERE u.email = $1
+        ORDER BY o.created_at DESC;
+    `
+
+    rows, err := s.db.Query(context.Background(), query, email)
+    if err != nil {
+        return nil, fmt.Errorf("query user order history: %w", err)
+    }
+    defer rows.Close()
+
+    var history []models.OrderDetail
+    for rows.Next() {
+        var od models.OrderDetail
+        err := rows.Scan(&od.OrderID, &od.CreatedAt, &od.ProductID, &od.ProductName, &od.Quantity, &od.TransactionStatus)
+        if err != nil {
+            return nil, fmt.Errorf("scan order detail: %w", err)
+        }
+        history = append(history, od)
+    }
+    return history, nil
+}
+
+func (s *Storage) GetPopularProducts() ([]models.PopularProduct, error) {
+    query := `
+        SELECT
+            p.id,
+            p.name,
+            SUM(oi.quantity) AS total_sold
+        FROM order_items oi
+        JOIN products p ON oi.product_id = p.id
+        GROUP BY p.id, p.name
+        ORDER BY total_sold DESC
+        LIMIT 10;
+    `
+    rows, err := s.db.Query(context.Background(), query)
+    if err != nil {
+        return nil, fmt.Errorf("query popular products: %w", err)
+    }
+    defer rows.Close()
+
+    var popular []models.PopularProduct
+    for rows.Next() {
+        var p models.PopularProduct
+        if err := rows.Scan(&p.ID, &p.Name, &p.TotalSold); err != nil {
+            return nil, fmt.Errorf("scan popular product: %w", err)
+        }
+        popular = append(popular, p)
+    }
+
+    return popular, nil
+}
+
+
