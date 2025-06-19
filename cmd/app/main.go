@@ -16,41 +16,51 @@ import (
 func main() {
 	cfg := config.MustLoad()
 
-	// Settings logger
 	log := logger.SetupLogger(cfg.Env)
 	log.Info("starting the project...", slog.String("env", cfg.Env))
 	log.Debug("debug messages are enabled")
 	log.Error("error messages are enabled")
 
-	// Settings and started database
 	storage, err := postgres.New(cfg.DatabaseURL)
 	if err != nil {
 		log.Error("failed to init storage", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
-	// Init router
 	router := chi.NewRouter()
 
-	// Middlewares
-	router.Use(middleware.RequestID)     // Хороший middleware для логирования
-	router.Use(middleware.Recoverer)     // Перехватывает паники и возвращает 500
-	router.Use(middleware.URLFormat)     // Для красивых URL при подключении к обработчикам
-	router.Use(logger.CustomLogger(log)) // Логирует все исходящие запросы
+	router.Use(middleware.RequestID)
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.URLFormat)
+	router.Use(logger.CustomLogger(log))
 
-	// Handlers
 	router.Get("/health", handlers.StatusHandler)
-	router.Get("/products", handlers.GetAllProducts(log, storage))
-	router.Post("/products", handlers.CreateProduct(log, storage))
-	router.Delete("/products/{id}", handlers.DeleteProduct(log, storage))
-	router.Put("/products/{id}", handlers.UpdateProduct(log, storage))
-	router.Get("/products/{id}", handlers.GetProductByID(log, storage))
+
+	router.Route("/products", func(r chi.Router) {
+		r.Get("/", handlers.GetAllProducts(log, storage))
+		r.Post("/", handlers.CreateProduct(log, storage))
+		r.Get("/{id}", handlers.GetProductByID(log, storage))
+		r.Put("/{id}", handlers.UpdateProduct(log, storage))
+		r.Delete("/{id}", handlers.DeleteProduct(log, storage))
+
+		r.Get("/popular", handlers.GetPopularProducts(log, storage))
 
 
-	// Оборачиваем роутер в middleware
+	})
+
+	ordersHandler := handlers.NewOrdersHandler(log, storage)
+	router.Route("/orders", func(r chi.Router) {
+		r.Post("/", ordersHandler.CreateOrder)
+		r.Post("/{id}/items", ordersHandler.AddOrderItem)
+		r.Post("/place", ordersHandler.PlaceOrder)
+	})
+
+	router.Route("/users", func(r chi.Router) {
+		r.Get("/{email}/history", ordersHandler.GetUserOrderHistory)
+	})
+
 	handler := logger.LoggingMiddleware(log, router)
 
-	// Settings and started server
 	srv := &http.Server{
 		Addr:         cfg.Address,
 		Handler:      handler,
@@ -60,15 +70,6 @@ func main() {
 	}
 
 	log.Info("Starting server on", slog.String("address", cfg.HTTPServer.Address))
-
-	ordersHandler := handlers.NewOrdersHandler(log, storage)
-	
-	router.Post("/orders", ordersHandler.CreateOrder)
-	router.Post("/orders/{id}/items", ordersHandler.AddOrderItem)
-	router.Post("/orders/place", ordersHandler.PlaceOrder)
-	router.Get("/users/{email}/history", ordersHandler.GetUserOrderHistory)
-
-
 
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Error("Server error: ", slog.String("err", err.Error()))

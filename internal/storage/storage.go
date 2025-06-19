@@ -22,6 +22,7 @@ type Storage interface {
 	GetOrderByID(id int) (models.Order, error)
 	GetOrdersByUserEmail(email string) ([]models.Order, error)
 	GetOrderItemsByOrderID(orderID int) ([]models.OrderItem, error) 
+    GetPopularProducts() ([]models.PopularProduct, error)
 	}
 
 	func (s *PostgresStorage) PlaceOrder(userEmail string, items []models.OrderItem) (orderID int, err error) {

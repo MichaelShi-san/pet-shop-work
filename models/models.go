@@ -46,3 +46,8 @@ type PopularProduct struct {
 	TotalSold int `json:"total_sold"`
 }
 
+type User struct {
+	ID    int
+	Name  string
+	Email string
+}

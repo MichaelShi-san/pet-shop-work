@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"go-pet-shop/internal/storage"
 	"go-pet-shop/models"
 	"log/slog"
 	"net/http"
@@ -123,5 +124,16 @@ func (h *OrdersHandler) GetUserOrderHistory(w http.ResponseWriter, r *http.Reque
     json.NewEncoder(w).Encode(history)
 }
 
+func GetPopularProducts(log *slog.Logger, s storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		popularProducts, err := s.GetPopularProducts()
+		if err != nil {
+			log.Error("failed to get popular products", slog.String("error", err.Error()))
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
 
-
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(popularProducts)
+	}
+}

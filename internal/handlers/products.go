@@ -41,7 +41,7 @@ import (
 type Products interface {
 	GetAllProducts() ([]models.Product, error)
 	CreateProduct(product models.Product) error
-	DeleteProduct(id string) error
+	DeleteProduct(id int) error
 	UpdateProduct(product models.Product) error
 	GetProductByID(id int) (models.Product, error)
 }
@@ -110,18 +110,20 @@ func DeleteProduct(log *slog.Logger, products Products) http.HandlerFunc {
 
 		log.Info("Deleting product", slog.String("url", r.URL.String()))
 
-		id := chi.URLParam(r, "id")
-		if id == "" {
-			log.Error("empty id")
-			http.Error(w, "invalid request", http.StatusBadRequest)
-			return
-		}
+		idParam := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+	log.Error("invalid id", slog.Any("error", err))
+	http.Error(w, "invalid product ID", http.StatusBadRequest)
+	return
+	}
 
-		if err := products.DeleteProduct(id); err != nil {
-			log.Error("failed to delete product", slog.Any("error", err))
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+	if err := products.DeleteProduct(id); err != nil {
+	log.Error("failed to delete product", slog.Any("error", err))
+	http.Error(w, err.Error(), http.StatusInternalServerError)
+	return
+	}
+
 
 		log.Info("Deleted product successfully", slog.String("url", r.URL.String()))
 
