@@ -3,13 +3,13 @@ module go-pet-shop
 go 1.24.0
 
 require (
+	github.com/go-chi/chi/v5 v5.2.1
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/jackc/pgx/v5 v5.7.5
 )
 
 require (
 	github.com/ajg/form v1.5.1 // indirect
-	github.com/go-chi/chi/v5 v5.2.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

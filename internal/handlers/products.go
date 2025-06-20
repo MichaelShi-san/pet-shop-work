@@ -28,6 +28,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"go-pet-shop/models"
 	"log/slog"
 	"net/http"
@@ -44,6 +45,7 @@ type Products interface {
 	DeleteProduct(id int) error
 	UpdateProduct(product models.Product) error
 	GetProductByID(id int) (models.Product, error)
+	GetPopularProducts() ([]models.PopularProduct, error)
 }
 
 func GetAllProducts(log *slog.Logger, products Products) http.HandlerFunc {
@@ -96,6 +98,21 @@ func CreateProduct(log *slog.Logger, products Products) http.HandlerFunc {
 		log.Info("Product created successfully", slog.String("url", r.URL.String()))
 
 		render.JSON(w, r, map[string]string{"status": "Product created successfully"})
+	}
+}
+
+func GetPopularProducts(log *slog.Logger, products Products) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		popularProducts, err := products.GetPopularProducts()
+		if err != nil {
+			log.Error("failed to get popular products", slog.String("error", err.Error()))
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(popularProducts)
 	}
 }
 

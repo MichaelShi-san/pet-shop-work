@@ -2,13 +2,13 @@ package handlers
 
 import (
 	"encoding/json"
-	"go-pet-shop/internal/storage"
 	"go-pet-shop/models"
 	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi"
+	"github.com/go-chi/render"
 )
 
 type Orders interface {
@@ -124,16 +124,52 @@ func (h *OrdersHandler) GetUserOrderHistory(w http.ResponseWriter, r *http.Reque
     json.NewEncoder(w).Encode(history)
 }
 
-func GetPopularProducts(log *slog.Logger, s storage.Storage) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		popularProducts, err := s.GetPopularProducts()
-		if err != nil {
-			log.Error("failed to get popular products", slog.String("error", err.Error()))
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(popularProducts)
+func (h *OrdersHandler) GetOrderByID(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "invalid order ID", http.StatusBadRequest)
+		return
 	}
+
+	order, err := h.Storage.GetOrderByID(id)
+	if err != nil {
+		h.log.Error("failed to get order", slog.Any("error", err))
+		http.Error(w, "order not found", http.StatusNotFound)
+		return
+	}
+
+	items, err := h.Storage.GetOrderItemsByOrderID(order.ID)
+	if err != nil {
+		h.log.Error("failed to get order items", slog.Any("error", err))
+		http.Error(w, "error loading items", http.StatusInternalServerError)
+		return
+	}
+
+	resp := struct {
+		Order  models.Order        `json:"order"`
+		Items  []models.OrderItem  `json:"items"`
+	}{
+		Order: order,
+		Items: items,
+	}
+
+	render.JSON(w, r, resp)
+}
+
+func (h *OrdersHandler) GetOrdersByUserEmail(w http.ResponseWriter, r *http.Request) {
+	email := chi.URLParam(r, "email")
+	if email == "" {
+		http.Error(w, "email is required", http.StatusBadRequest)
+		return
+	}
+
+	orders, err := h.Storage.GetOrdersByUserEmail(email)
+	if err != nil {
+		h.log.Error("failed to get orders by user email", slog.Any("error", err))
+		http.Error(w, "error retrieving orders", http.StatusInternalServerError)
+		return
+	}
+
+	render.JSON(w, r, orders)
 }

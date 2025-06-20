@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"go-pet-shop/internal/storage"
 	"go-pet-shop/models"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -258,5 +259,44 @@ func (s *Storage) GetPopularProducts() ([]models.PopularProduct, error) {
 
     return popular, nil
 }
+
+func (s *Storage) CreateUser(user models.User) error {
+    _, err := s.db.Exec(context.Background(),
+        "INSERT INTO users (email, name) VALUES ($1, $2)",
+        user.Email, user.Name,
+    )
+    return err
+}
+
+func (s *Storage) GetUserByEmail(email string) (models.User, error) {
+    var user models.User
+    err := s.db.QueryRow(context.Background(),
+        "SELECT email, name FROM users WHERE email = $1",
+        email,
+    ).Scan(&user.Email, &user.Name)
+    return user, err
+}
+
+func (s *Storage) GetAllUsers() ([]models.User, error) {
+    var users []models.User
+    rows, err := s.db.Query(context.Background(), "SELECT email, name FROM users")
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+    for rows.Next() {
+        var user models.User
+        if err := rows.Scan(&user.Email, &user.Name); err != nil {
+            return nil, err
+        }
+        users = append(users, user)
+    }
+    if err := rows.Err(); err != nil {
+        return nil, err
+    }
+    return users, nil
+}
+
+var _ storage.Storage = (*Storage)(nil)
 
 

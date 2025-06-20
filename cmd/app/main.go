@@ -53,10 +53,15 @@ func main() {
 		r.Post("/", ordersHandler.CreateOrder)
 		r.Post("/{id}/items", ordersHandler.AddOrderItem)
 		r.Post("/place", ordersHandler.PlaceOrder)
+		r.Get("/{id}", ordersHandler.GetOrderByID)
 	})
 
 	router.Route("/users", func(r chi.Router) {
 		r.Get("/{email}/history", ordersHandler.GetUserOrderHistory)
+		r.Post("/", handlers.CreateUser(log, storage))
+		r.Get("/", handlers.GetAllUsers(log, storage))
+		r.Get("/{email}", handlers.GetUserByEmail(log, storage))
+		r.Get("/{email}/orders", ordersHandler.GetOrdersByUserEmail) 
 	})
 
 	handler := logger.LoggingMiddleware(log, router)

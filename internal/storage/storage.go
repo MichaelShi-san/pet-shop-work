@@ -13,6 +13,7 @@ type PostgresStorage struct {
 
 type Storage interface {
 	GetAllProducts() ([]models.Product, error)
+    GetPopularProducts() ([]models.PopularProduct, error)
 	CreateProduct(product models.Product) error
 	UpdateProduct(product models.Product) error
 	DeleteProduct(id int) error
@@ -22,7 +23,10 @@ type Storage interface {
 	GetOrderByID(id int) (models.Order, error)
 	GetOrdersByUserEmail(email string) ([]models.Order, error)
 	GetOrderItemsByOrderID(orderID int) ([]models.OrderItem, error) 
-    GetPopularProducts() ([]models.PopularProduct, error)
+
+    CreateUser(user models.User) error
+    GetUserByEmail(email string) (models.User, error)
+    GetAllUsers() ([]models.User, error)
 	}
 
 	func (s *PostgresStorage) PlaceOrder(userEmail string, items []models.OrderItem) (orderID int, err error) {
@@ -142,7 +146,42 @@ func (s *PostgresStorage) GetUserOrderHistory(email string) ([]models.OrderDetai
     return history, nil
 }
 
+func (s *PostgresStorage) CreateUser(user models.User) error {
+    _, err := s.db.Exec(
+        "INSERT INTO users (email, name) VALUES ($1, $2)",
+        user.Email, user.Name,
+    )
+    return err
+}
 
+func (s *PostgresStorage) GetUserByEmail(email string) (models.User, error) {
+    var user models.User
+    err := s.db.QueryRow(
+        "SELECT email, name FROM users WHERE email = $1",
+        email,
+    ).Scan(&user.Email, &user.Name)
+    return user, err
+}
+
+func (s *Storage) GetAllUsers() ([]models.User, error) {
+    var users []models.User
+    rows, err := s.db.Query("SELECT email, name FROM users")
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+    for rows.Next() {
+        var user models.User
+        if err := rows.Scan(&user.Email, &user.Name); err != nil {
+            return nil, err
+        }
+        users = append(users, user)
+    }
+    if err := rows.Err(); err != nil {
+        return nil, err
+    }
+    return users, nil
+}
 
 var (
 	ErrURLNotFound = errors.New("url not found")

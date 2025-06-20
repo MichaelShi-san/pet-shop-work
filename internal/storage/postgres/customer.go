@@ -53,3 +53,4 @@ func (s *Storage) GetAllCustomers() ([]models.Customer, error) {
 
 	return customers, nil
 }
+
